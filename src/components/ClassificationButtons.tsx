@@ -15,25 +15,25 @@ const ClassificationButtons = ({
 
       <div className="flex justify-center space-x-4">
         <button
-          onClick={() => onClassify("burst fracture")}
+          onClick={() => onClassify("1")}
           className={`px-6 py-3 rounded-lg transition-all transform hover:-translate-y-1 focus:outline-none focus:ring-2 shadow-md ${
-            selectedValue === "burst fracture"
+            selectedValue === "1"
               ? "bg-red-500 text-white shadow-red-200"
               : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
           }`}
         >
-          Burst Fracture
+          Burst Fracture (1)
         </button>
 
         <button
-          onClick={() => onClassify("no burst fracture")}
+          onClick={() => onClassify("0")}
           className={`px-6 py-3 rounded-lg transition-all transform hover:-translate-y-1 focus:outline-none focus:ring-2 shadow-md ${
-            selectedValue === "no burst fracture"
+            selectedValue === "0"
               ? "bg-green-500 text-white shadow-green-200"
               : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
           }`}
         >
-          No Burst Fracture
+          No Burst Fracture (0)
         </button>
       </div>
 

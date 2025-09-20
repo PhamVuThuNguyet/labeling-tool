@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import ImageViewer from "@/components/ImageViewer";
 import ClassificationButtons from "@/components/ClassificationButtons";
 import GoogleSheetsStatus from "@/components/GoogleSheetsStatus";
+import NavigationSidebar from "@/components/NavigationSidebar";
 import { getImagePaths, saveClassification, clearAllLabels } from "@/lib/api";
 
 export default function Home() {
@@ -59,6 +60,43 @@ export default function Home() {
     }
   };
 
+  const handleImageSelect = (index: number) => {
+    setCurrentIndex(index);
+    setSaveStatus(null);
+  };
+
+  const handleJumpToNextUnclassified = () => {
+    const unclassifiedIndices = imagePaths
+      .map((path, index) => ({ path, index }))
+      .filter(({ path }) => !classifications[path])
+      .map(({ index }) => index);
+
+    const nextUnclassified = unclassifiedIndices.find(
+      (index) => index > currentIndex
+    );
+    if (nextUnclassified !== undefined) {
+      setCurrentIndex(nextUnclassified);
+      setSaveStatus(null);
+    }
+  };
+
+  const handleJumpToPreviousUnclassified = () => {
+    const unclassifiedIndices = imagePaths
+      .map((path, index) => ({ path, index }))
+      .filter(({ path }) => !classifications[path])
+      .map(({ index }) => index);
+
+    const previousUnclassified = unclassifiedIndices
+      .slice()
+      .reverse()
+      .find((index) => index < currentIndex);
+
+    if (previousUnclassified !== undefined) {
+      setCurrentIndex(previousUnclassified);
+      setSaveStatus(null);
+    }
+  };
+
   const handleClassify = async (classification: string) => {
     if (currentImage) {
       const updatedClassifications = {
@@ -84,6 +122,14 @@ export default function Home() {
                   : "Saved locally. Google Sheets update failed!"
               );
             }
+          }
+
+          // Auto-advance to next slide after successful classification
+          if (currentIndex < imagePaths.length - 1) {
+            setTimeout(() => {
+              setCurrentIndex(currentIndex + 1);
+              setSaveStatus(null);
+            }, 500); // Small delay to show the save status
           }
         } else {
           setSaveStatus("Save failed!");
@@ -150,6 +196,9 @@ export default function Home() {
               );
             }
           }
+
+          // Go back to the first slide after reset
+          setCurrentIndex(0);
         } else {
           setSaveStatus("Reset failed!");
         }
@@ -165,6 +214,14 @@ export default function Home() {
     ? classifications[currentImage]
     : undefined;
 
+  // Extract Study ID from the current image path
+  const getStudyId = (imagePath: string) => {
+    if (!imagePath) return "";
+    const pathParts = imagePath.split("/");
+    // The Study ID is the directory name (e.g., "1.2.826.0.1.3680043.12998")
+    return pathParts[pathParts.length - 2] || "";
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -177,85 +234,108 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="p-6">
-            <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-              Spine Image Classification
-            </h1>
+    <main className="min-h-screen bg-gray-50 flex">
+      {/* Navigation Sidebar */}
+      {imagePaths.length > 0 && (
+        <NavigationSidebar
+          imagePaths={imagePaths}
+          currentIndex={currentIndex}
+          classifications={classifications}
+          onImageSelect={handleImageSelect}
+          onJumpToNextUnclassified={handleJumpToNextUnclassified}
+          onJumpToPreviousUnclassified={handleJumpToPreviousUnclassified}
+        />
+      )}
 
-            {imagePaths.length > 0 ? (
-              <>
-                <div className="mb-6">
-                  <ImageViewer
-                    imagePath={currentImage}
-                    index={currentIndex + 1}
-                    total={imagePaths.length}
-                  />
+      {/* Main Content */}
+      <div className="flex-1 p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div className="p-6">
+              <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+                Spine Image Classification
+              </h1>
+
+              {currentImage && (
+                <div className="mb-4 text-center">
+                  <div className="inline-block bg-blue-100 text-blue-800 px-4 py-2 rounded-lg font-medium">
+                    Study ID: {getStudyId(currentImage)}
+                  </div>
                 </div>
+              )}
 
-                <div className="flex flex-col space-y-6">
-                  <ClassificationButtons
-                    selectedValue={currentClassification}
-                    onClassify={handleClassify}
-                    onClear={handleClear}
-                  />
-
-                  {saveStatus && (
-                    <div className="text-center text-sm">
-                      <span
-                        className={`px-3 py-1 rounded-full ${
-                          saveStatus.includes("failed")
-                            ? "bg-red-100 text-red-800"
-                            : saveStatus.includes("...")
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-green-100 text-green-800"
-                        }`}
-                      >
-                        {saveStatus}
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="flex justify-between pt-4 border-t border-gray-200">
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={handlePrevious}
-                        disabled={currentIndex === 0}
-                        className="px-4 py-2 bg-gray-200 hover:bg-gray-300 disabled:opacity-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        Previous
-                      </button>
-                      <button
-                        onClick={handleNext}
-                        disabled={currentIndex === imagePaths.length - 1}
-                        className="px-4 py-2 bg-gray-200 hover:bg-gray-300 disabled:opacity-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        Next
-                      </button>
-                    </div>
-
-                    <button
-                      onClick={handleResetAll}
-                      className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
-                    >
-                      Reset All
-                    </button>
+              {imagePaths.length > 0 ? (
+                <>
+                  <div className="mb-6">
+                    <ImageViewer
+                      imagePath={currentImage}
+                      index={currentIndex + 1}
+                      total={imagePaths.length}
+                    />
                   </div>
 
-                  {/* Google Sheets Status */}
-                  <GoogleSheetsStatus
-                    isConfigured={sheetsStatus.isConfigured}
-                    message={sheetsStatus.message}
-                  />
+                  <div className="flex flex-col space-y-6">
+                    <ClassificationButtons
+                      selectedValue={currentClassification}
+                      onClassify={handleClassify}
+                      onClear={handleClear}
+                    />
+
+                    {saveStatus && (
+                      <div className="text-center text-sm">
+                        <span
+                          className={`px-3 py-1 rounded-full ${
+                            saveStatus.includes("failed")
+                              ? "bg-red-100 text-red-800"
+                              : saveStatus.includes("...")
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-green-100 text-green-800"
+                          }`}
+                        >
+                          {saveStatus}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between pt-4 border-t border-gray-200">
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={handlePrevious}
+                          disabled={currentIndex === 0}
+                          className="px-4 py-2 bg-gray-200 hover:bg-gray-300 disabled:opacity-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          Previous
+                        </button>
+                        <button
+                          onClick={handleNext}
+                          disabled={currentIndex === imagePaths.length - 1}
+                          className="px-4 py-2 bg-gray-200 hover:bg-gray-300 disabled:opacity-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          Next
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={handleResetAll}
+                        className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
+                      >
+                        Reset All
+                      </button>
+                    </div>
+
+                    {/* Google Sheets Status */}
+                    <GoogleSheetsStatus
+                      isConfigured={sheetsStatus.isConfigured}
+                      message={sheetsStatus.message}
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-gray-600">No images found.</p>
                 </div>
-              </>
-            ) : (
-              <div className="text-center py-12">
-                <p className="text-gray-600">No images found.</p>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
