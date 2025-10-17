@@ -24,7 +24,7 @@ export const DATASETS: Record<DatasetId, DatasetConfig> = {
     dataDirName: "mls-data",
     sheetTabName: "Triaging_Classifications",
     labels: ["High Risk", "Unclear", "Low Risk"],
-    title: "TBI Triaging",
+    title: "TBI Risk Triaging",
     headers: ["Study_ID", "Slice_Number", "Triaging"],
     toRow: (imagePath, classification) => {
       // imagePath format: data/mls-data/<study_id>/<filename>.png

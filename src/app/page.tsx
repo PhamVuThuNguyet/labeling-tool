@@ -2,9 +2,11 @@
 
 import { DATASETS } from "@/lib/datasetConfig";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export default function Home() {
   const router = useRouter();
+  const [labeler, setLabeler] = useState("");
 
   return (
     <main className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
@@ -17,17 +19,40 @@ export default function Home() {
             <p className="text-gray-600 mb-6 text-center">
               Select a dataset to start labeling.
             </p>
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center space-y-3">
+              <div className="w-80">
+                <label
+                  htmlFor="labeler"
+                  className="block text-sm text-gray-600 mb-1"
+                >
+                  Labeler name (required)
+                </label>
+                <input
+                  id="labeler"
+                  value={labeler}
+                  onChange={(e) =>
+                    setLabeler(e.target.value.toLowerCase().trim())
+                  }
+                  placeholder="e.g. Alice"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
               <select
                 id="dataset-select"
                 defaultValue=""
                 onChange={(e) => {
-                  if (e.target.value) router.push(`/${e.target.value}`);
+                  const selected = e.target.value;
+                  if (!selected || !labeler) return;
+                  const qs = `?labeler=${encodeURIComponent(labeler)}`;
+                  router.push(`/${selected}${qs}`);
                 }}
                 className="w-80 px-4 py-3 border border-gray-300 rounded-md bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={!labeler}
               >
                 <option value="" disabled>
-                  Select dataset...
+                  {labeler
+                    ? "Select dataset..."
+                    : "Enter labeler name to continue"}
                 </option>
                 {Object.entries(DATASETS).map(([id, cfg]) => (
                   <option key={id} value={id}>

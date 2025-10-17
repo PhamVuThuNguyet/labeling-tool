@@ -7,8 +7,12 @@ import { DATASETS, isKnownDataset } from "@/lib/datasetConfig";
 
 // Path to the file where classifications will be stored locally as a backup
 // For Vercel deployment, we'll use a different location since the filesystem is read-only except /tmp
-function getClassificationsFile(datasetId: keyof typeof DATASETS) {
-  const fileName = `classifications_${datasetId}.json`;
+function getClassificationsFile(
+  datasetId: keyof typeof DATASETS,
+  labeler: string
+) {
+  const suffix = `_${labeler}`;
+  const fileName = `classifications_${datasetId}${suffix}.json`;
   return process.env.VERCEL
     ? path.join("/tmp", fileName)
     : path.join(process.cwd(), fileName);
@@ -67,11 +71,12 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const datasetParam = searchParams.get("dataset");
+    const labeler = searchParams.get("labeler")?.toLowerCase() || "";
     const datasetId =
       datasetParam && isKnownDataset(datasetParam)
         ? datasetParam
         : (Object.keys(DATASETS)[0] as keyof typeof DATASETS);
-    const filePath = getClassificationsFile(datasetId);
+    const filePath = getClassificationsFile(datasetId, labeler);
     ensureFileExists(filePath);
 
     // Always prioritize local data
@@ -89,7 +94,9 @@ export async function GET(request: NextRequest) {
       try {
         console.log("Attempting to fetch classifications from Google Sheets");
         const sheetsResult = await googleSheetsService.readSheet(
-          DATASETS[datasetId].sheetTabName,
+          labeler
+            ? `${DATASETS[datasetId].sheetTabName}_${labeler}`
+            : DATASETS[datasetId].sheetTabName,
           datasetId
         );
         if (sheetsResult.success) {
@@ -124,11 +131,12 @@ export async function POST(request: NextRequest) {
     const { imagePath, classification } = data;
     const { searchParams } = new URL(request.url);
     const datasetParam = searchParams.get("dataset");
+    const labeler = searchParams.get("labeler")?.toLowerCase() || "";
     const datasetId =
       datasetParam && isKnownDataset(datasetParam)
         ? datasetParam
         : (Object.keys(DATASETS)[0] as keyof typeof DATASETS);
-    const filePath = getClassificationsFile(datasetId);
+    const filePath = getClassificationsFile(datasetId, labeler);
     ensureFileExists(filePath);
 
     if (!imagePath) {
@@ -160,7 +168,9 @@ export async function POST(request: NextRequest) {
     if (sheetsStatus.isConfigured) {
       const result = await googleSheetsService.updateSheet(
         currentData.classifications,
-        DATASETS[datasetId].sheetTabName,
+        labeler
+          ? `${DATASETS[datasetId].sheetTabName}_${labeler}`
+          : DATASETS[datasetId].sheetTabName,
         datasetId
       );
       googleSheetsSuccess = result.success;
@@ -192,11 +202,12 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const datasetParam = searchParams.get("dataset");
+    const labeler = searchParams.get("labeler")?.toLowerCase() || "";
     const datasetId =
       datasetParam && isKnownDataset(datasetParam)
         ? datasetParam
         : (Object.keys(DATASETS)[0] as keyof typeof DATASETS);
-    const filePath = getClassificationsFile(datasetId);
+    const filePath = getClassificationsFile(datasetId, labeler);
     ensureFileExists(filePath);
     const emptyData = { classifications: {} };
 
@@ -213,7 +224,9 @@ export async function DELETE(request: NextRequest) {
     if (sheetsStatus.isConfigured) {
       const result = await googleSheetsService.updateSheet(
         {},
-        DATASETS[datasetId].sheetTabName,
+        labeler
+          ? `${DATASETS[datasetId].sheetTabName}_${labeler}`
+          : DATASETS[datasetId].sheetTabName,
         datasetId
       );
       googleSheetsSuccess = result.success;

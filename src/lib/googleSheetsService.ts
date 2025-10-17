@@ -107,6 +107,45 @@ export class GoogleSheetsService {
     return GoogleSheetsService.instance;
   }
 
+  private async getSheetTitles(): Promise<string[]> {
+    const resp = await this.sheets.spreadsheets.get({
+      spreadsheetId: this.spreadsheetId,
+    });
+    const titles = (resp.data.sheets || [])
+      .map((s: any) => s.properties?.title)
+      .filter((t: string | undefined) => !!t);
+    return titles as string[];
+  }
+
+  private async ensureSheetTabExists(
+    sheetTabName: string,
+    headers: string[]
+  ): Promise<void> {
+    const titles = await this.getSheetTitles();
+    if (!titles.includes(sheetTabName)) {
+      await this.sheets.spreadsheets.batchUpdate({
+        spreadsheetId: this.spreadsheetId,
+        requestBody: {
+          requests: [
+            {
+              addSheet: {
+                properties: { title: sheetTabName },
+              },
+            },
+          ],
+        },
+      });
+
+      // write header row
+      await this.sheets.spreadsheets.values.update({
+        spreadsheetId: this.spreadsheetId,
+        range: `${sheetTabName}!A1`,
+        valueInputOption: "RAW",
+        resource: { values: [headers] },
+      });
+    }
+  }
+
   /**
    * Check if Google Sheets integration is properly configured
    */
@@ -133,6 +172,14 @@ export class GoogleSheetsService {
     }
 
     try {
+      const headers =
+        datasetId && DATASETS[datasetId]
+          ? DATASETS[datasetId].headers
+          : ["ImagePath", "Classification"];
+
+      // ensure sheet exists
+      await this.ensureSheetTabExists(sheetTabName, headers);
+
       // Convert classifications to array format using dataset-specific mapping
       const rows = Object.entries(classifications).map(
         ([imagePath, classification]) => {
@@ -145,11 +192,7 @@ export class GoogleSheetsService {
       );
 
       // Add header row
-      if (datasetId && DATASETS[datasetId]) {
-        rows.unshift(DATASETS[datasetId].headers);
-      } else {
-        rows.unshift(["ImagePath", "Classification"]);
-      }
+      rows.unshift(headers);
 
       // Clear existing content
       await this.sheets.spreadsheets.values.clear({
@@ -201,6 +244,14 @@ export class GoogleSheetsService {
     }
 
     try {
+      const headers =
+        datasetId && DATASETS[datasetId]
+          ? DATASETS[datasetId].headers
+          : ["ImagePath", "Classification"];
+
+      // ensure sheet exists
+      await this.ensureSheetTabExists(sheetTabName, headers);
+
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
         range: `${sheetTabName}!A:C`,

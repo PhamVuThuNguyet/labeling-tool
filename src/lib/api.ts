@@ -3,7 +3,7 @@
 /**
  * Get all image paths from the API
  */
-export async function getImagePaths(dataset?: string): Promise<string[]> {
+export async function getImagePaths(dataset: string): Promise<string[]> {
   const url = dataset
     ? `/api/images?dataset=${encodeURIComponent(dataset)}`
     : "/api/images";
@@ -18,7 +18,8 @@ export async function getImagePaths(dataset?: string): Promise<string[]> {
 export async function saveClassification(
   imagePath: string,
   classification: string,
-  dataset?: string
+  dataset: string,
+  labeler: string
 ): Promise<{
   success: boolean;
   googleSheets?: {
@@ -27,8 +28,11 @@ export async function saveClassification(
     message: string;
   };
 }> {
-  const url = dataset
-    ? `/api/classifications?dataset=${encodeURIComponent(dataset)}`
+  const params = new URLSearchParams();
+  params.set("dataset", dataset);
+  params.set("labeler", labeler);
+  const url = params.toString()
+    ? `/api/classifications?${params.toString()}`
     : "/api/classifications";
   const response = await fetch(url, {
     method: "POST",
@@ -44,7 +48,10 @@ export async function saveClassification(
 /**
  * Clear all labels
  */
-export async function clearAllLabels(dataset?: string): Promise<{
+export async function clearAllLabels(
+  dataset: string,
+  labeler: string
+): Promise<{
   success: boolean;
   googleSheets?: {
     isConfigured: boolean;
@@ -52,8 +59,11 @@ export async function clearAllLabels(dataset?: string): Promise<{
     message: string;
   };
 }> {
-  const url = dataset
-    ? `/api/classifications?dataset=${encodeURIComponent(dataset)}`
+  const params = new URLSearchParams();
+  params.set("dataset", dataset);
+  params.set("labeler", labeler);
+  const url = params.toString()
+    ? `/api/classifications?${params.toString()}`
     : "/api/classifications";
   const response = await fetch(url, {
     method: "DELETE",
@@ -65,12 +75,18 @@ export async function clearAllLabels(dataset?: string): Promise<{
 /**
  * Get Google Sheets status
  */
-export async function getGoogleSheetsStatus(dataset?: string): Promise<{
+export async function getGoogleSheetsStatus(
+  dataset: string,
+  labeler: string
+): Promise<{
   isConfigured: boolean;
   message: string;
 }> {
-  const url = dataset
-    ? `/api/classifications?dataset=${encodeURIComponent(dataset)}`
+  const params = new URLSearchParams();
+  params.set("dataset", dataset);
+  params.set("labeler", labeler);
+  const url = params.toString()
+    ? `/api/classifications?${params.toString()}`
     : "/api/classifications";
   const response = await fetch(url);
   const data = await response.json();

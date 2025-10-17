@@ -15,6 +15,13 @@ export default function DatasetPage() {
   const [classifications, setClassifications] = useState<
     Record<string, string>
   >({});
+  const searchParams =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search)
+      : null;
+  const [labeler] = useState<string>(
+    (searchParams?.get("labeler") || "").toLowerCase()
+  );
   const [loading, setLoading] = useState(true);
   const [sheetsStatus, setSheetsStatus] = useState({
     isConfigured: false,
@@ -41,8 +48,11 @@ export default function DatasetPage() {
         const paths = await getImagePaths(datasetId);
         setImagePaths(paths);
 
+        const params = new URLSearchParams();
+        params.set("dataset", datasetId);
+        params.set("labeler", labeler);
         const response = await fetch(
-          `/api/classifications?dataset=${encodeURIComponent(datasetId)}`
+          `/api/classifications?${params.toString()}`
         );
         const data = await response.json();
         setClassifications(data.classifications || {});
@@ -59,7 +69,7 @@ export default function DatasetPage() {
     };
 
     fetchImages();
-  }, [datasetId]);
+  }, [datasetId, labeler]);
 
   const handleNext = () => {
     if (currentIndex < imagePaths.length - 1) {
@@ -126,7 +136,8 @@ export default function DatasetPage() {
         const result = await saveClassification(
           currentImage,
           classification,
-          datasetId
+          datasetId,
+          labeler
         );
 
         if (result.success) {
@@ -168,7 +179,12 @@ export default function DatasetPage() {
       setSaveStatus("Clearing...");
 
       try {
-        const result = await saveClassification(currentImage, "", datasetId);
+        const result = await saveClassification(
+          currentImage,
+          "",
+          datasetId,
+          labeler
+        );
 
         if (result.success) {
           setSaveStatus("Cleared locally ✓");
@@ -199,7 +215,7 @@ export default function DatasetPage() {
       setSaveStatus("Resetting all...");
 
       try {
-        const result = await clearAllLabels(datasetId);
+        const result = await clearAllLabels(datasetId, labeler);
 
         if (result.success) {
           setSaveStatus("Reset all locally ✓");
@@ -266,10 +282,13 @@ export default function DatasetPage() {
         <div className="max-w-6xl mx-auto">
           <div className="bg-white rounded-xl shadow-lg overflow-hidden">
             <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
+              <div className="text-center mb-6">
                 <h1 className="text-2xl font-bold text-gray-800">
                   {datasetConfig.title || "Image Classification"}
                 </h1>
+                <h3 className="text-xl text-gray-800">
+                  Annotated by: {labeler}
+                </h3>
               </div>
 
               {currentImage && (
