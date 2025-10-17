@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { DATASETS, isKnownDataset } from "@/lib/datasetConfig";
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const imagePath = searchParams.get("path");
+    const datasetParam = searchParams.get("dataset");
+    const datasetId =
+      datasetParam && isKnownDataset(datasetParam)
+        ? datasetParam
+        : (Object.keys(DATASETS)[0] as keyof typeof DATASETS);
+    const datasetConfig = DATASETS[datasetId];
 
     if (!imagePath) {
       return NextResponse.json(
@@ -14,28 +21,30 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Use process.env.DATA_DIR if available (for Vercel), otherwise use the project root
-    const dataDir = process.env.DATA_DIR
-      ? path.join(process.cwd(), process.env.DATA_DIR)
-      : path.join(process.cwd(), "data");
+    // Use only app data directory per dataset config
+    const baseDir = path.join(process.cwd(), "data", datasetConfig.dataDirName);
 
-    // Extract the relative path within the data folder
+    // Support nested format only:
+    // - "data/<datasetDir>/<study>/<file.png>"
     const pathParts = imagePath.split("/");
-    if (pathParts.length < 3 || pathParts[0] !== "data") {
+    let fullPath: string;
+    if (
+      pathParts[0] === "data" &&
+      pathParts[1] === datasetConfig.dataDirName &&
+      pathParts.length >= 4
+    ) {
+      const studyInstanceUID = pathParts[2];
+      const fileName = pathParts.slice(3).join("/");
+      fullPath = path.join(baseDir, studyInstanceUID, fileName);
+    } else {
       return NextResponse.json(
         { error: "Invalid image path format" },
         { status: 400 }
       );
     }
 
-    const studyInstanceUID = pathParts[1];
-    const fileName = pathParts[2];
-
-    // Reconstruct the full path
-    const fullPath = path.join(dataDir, studyInstanceUID, fileName);
-
     // Ensure the path is within the data directory (security check)
-    if (!fullPath.startsWith(dataDir)) {
+    if (!fullPath.startsWith(baseDir)) {
       return NextResponse.json(
         { error: "Invalid image path" },
         { status: 403 }

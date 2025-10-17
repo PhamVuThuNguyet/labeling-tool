@@ -3,8 +3,11 @@
 /**
  * Get all image paths from the API
  */
-export async function getImagePaths(): Promise<string[]> {
-  const response = await fetch("/api/images");
+export async function getImagePaths(dataset?: string): Promise<string[]> {
+  const url = dataset
+    ? `/api/images?dataset=${encodeURIComponent(dataset)}`
+    : "/api/images";
+  const response = await fetch(url);
   const data = await response.json();
   return data.images || [];
 }
@@ -14,7 +17,8 @@ export async function getImagePaths(): Promise<string[]> {
  */
 export async function saveClassification(
   imagePath: string,
-  classification: string
+  classification: string,
+  dataset?: string
 ): Promise<{
   success: boolean;
   googleSheets?: {
@@ -23,7 +27,10 @@ export async function saveClassification(
     message: string;
   };
 }> {
-  const response = await fetch("/api/classifications", {
+  const url = dataset
+    ? `/api/classifications?dataset=${encodeURIComponent(dataset)}`
+    : "/api/classifications";
+  const response = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -37,7 +44,7 @@ export async function saveClassification(
 /**
  * Clear all labels
  */
-export async function clearAllLabels(): Promise<{
+export async function clearAllLabels(dataset?: string): Promise<{
   success: boolean;
   googleSheets?: {
     isConfigured: boolean;
@@ -45,7 +52,10 @@ export async function clearAllLabels(): Promise<{
     message: string;
   };
 }> {
-  const response = await fetch("/api/classifications", {
+  const url = dataset
+    ? `/api/classifications?dataset=${encodeURIComponent(dataset)}`
+    : "/api/classifications";
+  const response = await fetch(url, {
     method: "DELETE",
   });
 
@@ -55,11 +65,14 @@ export async function clearAllLabels(): Promise<{
 /**
  * Get Google Sheets status
  */
-export async function getGoogleSheetsStatus(): Promise<{
+export async function getGoogleSheetsStatus(dataset?: string): Promise<{
   isConfigured: boolean;
   message: string;
 }> {
-  const response = await fetch("/api/classifications");
+  const url = dataset
+    ? `/api/classifications?dataset=${encodeURIComponent(dataset)}`
+    : "/api/classifications";
+  const response = await fetch(url);
   const data = await response.json();
   return (
     data.googleSheets || { isConfigured: false, message: "Unknown status" }

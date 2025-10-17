@@ -5,9 +5,8 @@ import { Inter } from "next/font/google";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Spine Image Classification Tool",
-  description:
-    "A tool for classifying spine images as burst fracture or no burst fracture",
+  title: "Image Labeling Tool",
+  description: "A tool for quick labeling of images",
 };
 
 export default function RootLayout({

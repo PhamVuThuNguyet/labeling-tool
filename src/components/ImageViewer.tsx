@@ -5,9 +5,15 @@ interface ImageViewerProps {
   imagePath: string;
   index: number;
   total: number;
+  dataset?: string;
 }
 
-const ImageViewer = ({ imagePath, index, total }: ImageViewerProps) => {
+const ImageViewer = ({
+  imagePath,
+  index,
+  total,
+  dataset,
+}: ImageViewerProps) => {
   const [isZoomed, setIsZoomed] = useState(false);
 
   const toggleZoom = () => {
@@ -28,7 +34,9 @@ const ImageViewer = ({ imagePath, index, total }: ImageViewerProps) => {
           onClick={toggleZoom}
         >
           <img
-            src={`/api/image?path=${encodeURIComponent(imagePath)}`}
+            src={`/api/image?path=${encodeURIComponent(imagePath)}${
+              dataset ? `&dataset=${encodeURIComponent(dataset)}` : ""
+            }`}
             alt="Spine scan"
             className="max-w-full h-auto object-contain"
             style={{ maxHeight: "60vh" }}

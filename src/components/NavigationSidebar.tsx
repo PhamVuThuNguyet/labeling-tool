@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import { useState } from "react";
+import { DATASETS, DatasetId } from "@/lib/datasetConfig";
 
 interface NavigationSidebarProps {
   imagePaths: string[];
@@ -8,6 +9,7 @@ interface NavigationSidebarProps {
   onImageSelect: (index: number) => void;
   onJumpToNextUnclassified: () => void;
   onJumpToPreviousUnclassified: () => void;
+  datasetId?: DatasetId;
 }
 
 const NavigationSidebar = ({
@@ -17,13 +19,21 @@ const NavigationSidebar = ({
   onImageSelect,
   onJumpToNextUnclassified,
   onJumpToPreviousUnclassified,
+  datasetId,
 }: NavigationSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const datasetConfig = datasetId ? DATASETS[datasetId] : undefined;
+  const positiveLabel = datasetConfig ? datasetConfig.labels[0] : undefined;
+  const negativeLabel = datasetConfig ? datasetConfig.labels[1] : undefined;
 
   const getImageStatus = (imagePath: string) => {
     const classification = classifications[imagePath];
     if (!classification) return "unclassified";
-    return classification === "1" ? "burst-fracture" : "no-burst-fracture";
+    if (positiveLabel && classification === positiveLabel) return "positive";
+    if (negativeLabel && classification === negativeLabel) return "negative";
+    // Fallback if labels don't match exactly
+    return "unclassified";
   };
 
   const getUnclassifiedIndices = () => {
@@ -43,7 +53,7 @@ const NavigationSidebar = ({
 
   if (isCollapsed) {
     return (
-      <div className="w-12 bg-gray-100 border-r border-gray-200 flex flex-col items-center py-4 h-screen">
+      <div className="w-12 bg-gray-100 border-r border-gray-200 flex flex-col items-center py-4 h-full">
         <button
           onClick={() => setIsCollapsed(false)}
           className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
@@ -68,7 +78,7 @@ const NavigationSidebar = ({
   }
 
   return (
-    <div className="w-80 bg-gray-100 border-r border-gray-200 flex flex-col h-screen">
+    <div className="w-80 bg-gray-100 border-r border-gray-200 flex flex-col h-full">
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between">
@@ -146,9 +156,9 @@ const NavigationSidebar = ({
                       : "border-gray-200 hover:border-gray-300"
                   }
                   ${
-                    status === "burst-fracture"
+                    status === "positive"
                       ? "bg-red-50"
-                      : status === "no-burst-fracture"
+                      : status === "negative"
                       ? "bg-green-50"
                       : "bg-white"
                   }
@@ -156,15 +166,19 @@ const NavigationSidebar = ({
                 title={`${fileName} - ${
                   status === "unclassified"
                     ? "Unclassified"
-                    : status === "burst-fracture"
-                    ? "Burst Fracture (1)"
-                    : "No Burst Fracture (0)"
+                    : status === "positive"
+                    ? positiveLabel || "Positive"
+                    : negativeLabel || "Negative"
                 }`}
               >
                 {/* Thumbnail */}
                 <div className="aspect-square overflow-hidden rounded-md">
                   <img
-                    src={`/api/image?path=${encodeURIComponent(imagePath)}`}
+                    src={`/api/image?path=${encodeURIComponent(imagePath)}${
+                      datasetId
+                        ? `&dataset=${encodeURIComponent(datasetId)}`
+                        : ""
+                    }`}
                     alt={`Slice ${index + 1}`}
                     className="w-full h-full object-cover"
                   />
@@ -172,16 +186,16 @@ const NavigationSidebar = ({
 
                 {/* Status Indicator */}
                 <div className="absolute top-1 right-1">
-                  {status === "burst-fracture" && (
+                  {status === "positive" && (
                     <div
                       className="w-3 h-3 bg-red-500 rounded-full border border-white"
-                      title="Burst Fracture (1)"
+                      title={positiveLabel || "Positive"}
                     />
                   )}
-                  {status === "no-burst-fracture" && (
+                  {status === "negative" && (
                     <div
                       className="w-3 h-3 bg-green-500 rounded-full border border-white"
-                      title="No Burst Fracture (0)"
+                      title={negativeLabel || "Negative"}
                     />
                   )}
                   {status === "unclassified" && (

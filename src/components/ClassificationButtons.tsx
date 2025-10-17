@@ -1,11 +1,63 @@
 interface ClassificationButtonsProps {
   selectedValue?: string;
+  labels?: string[];
   onClassify: (classification: string) => void;
   onClear: () => void;
 }
 
+const BASE_COLOR = {
+  "positive-active": "bg-red-600 text-white shadow-red-200",
+  "positive-base": "bg-red-300 text-white shadow-red-200 hover:bg-red-500",
+  "negative-active": "bg-green-600 text-white shadow-green-200",
+  "negative-base":
+    "bg-green-300 text-white shadow-green-200 hover:bg-green-500",
+  "neutral-active": "bg-yellow-600 text-white shadow-yellow-200",
+  "neutral-base":
+    "bg-yellow-300 text-white shadow-yellow-200 hover:bg-yellow-500",
+};
+
+const COLOR_CLASSES: Record<string, { active: string; base: string }> = {
+  Yes: {
+    active: BASE_COLOR["positive-active"],
+    base: BASE_COLOR["positive-base"],
+  },
+  No: {
+    active: BASE_COLOR["negative-active"],
+    base: BASE_COLOR["negative-base"],
+  },
+  MLS: {
+    active: BASE_COLOR["positive-active"],
+    base: BASE_COLOR["positive-base"],
+  },
+  "No MLS": {
+    active: BASE_COLOR["negative-active"],
+    base: BASE_COLOR["negative-base"],
+  },
+  "Burst Fracture": {
+    active: BASE_COLOR["positive-active"],
+    base: BASE_COLOR["positive-base"],
+  },
+  "No Burst Fracture": {
+    active: BASE_COLOR["negative-active"],
+    base: BASE_COLOR["negative-base"],
+  },
+  "High Risk": {
+    active: BASE_COLOR["positive-active"],
+    base: BASE_COLOR["positive-base"],
+  },
+  Unclear: {
+    active: BASE_COLOR["neutral-active"],
+    base: BASE_COLOR["neutral-base"],
+  },
+  "Low Risk": {
+    active: BASE_COLOR["negative-active"],
+    base: BASE_COLOR["negative-base"],
+  },
+};
+
 const ClassificationButtons = ({
   selectedValue,
+  labels = ["Yes", "No"],
   onClassify,
   onClear,
 }: ClassificationButtonsProps) => {
@@ -14,27 +66,21 @@ const ClassificationButtons = ({
       <div className="text-gray-600 mb-2 text-center">Classification:</div>
 
       <div className="flex justify-center space-x-4">
-        <button
-          onClick={() => onClassify("1")}
-          className={`px-6 py-3 rounded-lg transition-all transform hover:-translate-y-1 focus:outline-none focus:ring-2 shadow-md ${
-            selectedValue === "1"
-              ? "bg-red-500 text-white shadow-red-200"
-              : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-          }`}
-        >
-          Burst Fracture (1)
-        </button>
-
-        <button
-          onClick={() => onClassify("0")}
-          className={`px-6 py-3 rounded-lg transition-all transform hover:-translate-y-1 focus:outline-none focus:ring-2 shadow-md ${
-            selectedValue === "0"
-              ? "bg-green-500 text-white shadow-green-200"
-              : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-          }`}
-        >
-          No Burst Fracture (0)
-        </button>
+        {labels.map((label) => {
+          const colors = COLOR_CLASSES[label] || COLOR_CLASSES["MLS"];
+          const isActive = selectedValue === label;
+          return (
+            <button
+              key={label}
+              onClick={() => onClassify(label)}
+              className={`px-6 py-3 rounded-lg transition-all transform hover:-translate-y-1 focus:outline-none focus:ring-2 shadow-md ${
+                isActive ? colors.active : colors.base
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       {selectedValue && (

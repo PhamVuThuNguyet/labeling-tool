@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { google } from "googleapis";
+import { DATASETS, DatasetId } from "@/lib/datasetConfig";
 import fs from "fs";
 import path from "path";
 
@@ -120,7 +121,9 @@ export class GoogleSheetsService {
    * Updates the Google Sheet with the classification data
    */
   async updateSheet(
-    classifications: Record<string, string>
+    classifications: Record<string, string>,
+    sheetTabName = "Classifications",
+    datasetId?: DatasetId
   ): Promise<{ success: boolean; message: string }> {
     if (!this.isConfigured) {
       return {
@@ -130,34 +133,34 @@ export class GoogleSheetsService {
     }
 
     try {
-      // Convert classifications to array format for Google Sheets with columns: StudyInstanceUID, slice_number, Burst_Fracture
+      // Convert classifications to array format using dataset-specific mapping
       const rows = Object.entries(classifications).map(
         ([imagePath, classification]) => {
-          // Extract StudyInstanceUID and slice_number from the image path
-          const pathParts = imagePath.split("/");
-          const studyInstanceUID = pathParts[1] || ""; // Second part of path is StudyInstanceUID
-          const sliceFilename = pathParts[2] || "";
-          const sliceNumber = sliceFilename
-            .replace("slice_", "")
-            .replace(".png", "");
-
-          return [studyInstanceUID, sliceNumber, classification];
+          if (datasetId && DATASETS[datasetId]) {
+            return DATASETS[datasetId].toRow(imagePath, classification);
+          }
+          // Fallback: generic two-column mapping
+          return [imagePath, classification];
         }
       );
 
       // Add header row
-      rows.unshift(["StudyInstanceUID", "slice_number", "Burst_Fracture"]);
+      if (datasetId && DATASETS[datasetId]) {
+        rows.unshift(DATASETS[datasetId].headers);
+      } else {
+        rows.unshift(["ImagePath", "Classification"]);
+      }
 
       // Clear existing content
       await this.sheets.spreadsheets.values.clear({
         spreadsheetId: this.spreadsheetId,
-        range: "Classifications!A:C",
+        range: `${sheetTabName}!A:C`,
       });
 
       // Update with new data
       await this.sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
-        range: "Classifications!A1",
+        range: `${sheetTabName}!A1`,
         valueInputOption: "RAW",
         resource: {
           values: rows,
@@ -181,7 +184,10 @@ export class GoogleSheetsService {
   /**
    * Reads the classifications from the Google Sheet
    */
-  async readSheet(): Promise<{
+  async readSheet(
+    sheetTabName = "Classifications",
+    datasetId?: DatasetId
+  ): Promise<{
     success: boolean;
     data: Record<string, string>;
     message: string;
@@ -197,7 +203,7 @@ export class GoogleSheetsService {
     try {
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
-        range: "Classifications!A:C",
+        range: `${sheetTabName}!A:C`,
       });
 
       const rows = response.data.values || [];
@@ -206,14 +212,14 @@ export class GoogleSheetsService {
       const classifications: Record<string, string> = {};
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
-        if (row.length >= 3) {
-          // Reconstruct the image path from StudyInstanceUID and slice_number
-          const studyInstanceUID = row[0];
-          const sliceNumber = row[1];
-          const classification = row[2];
-
-          // Format: data/1.2.826.0.1.3680043.12998/slice_194.png
-          const imagePath = `data/${studyInstanceUID}/slice_${sliceNumber}.png`;
+        if (!row || row.length === 0) continue;
+        if (datasetId && DATASETS[datasetId]) {
+          const parsed = DATASETS[datasetId].fromRow(row as string[]);
+          if (parsed) classifications[parsed.imagePath] = parsed.classification;
+        } else if (row.length >= 2) {
+          // Fallback: [imagePath, classification]
+          const imagePath = row[0] as string;
+          const classification = row[1] as string;
           classifications[imagePath] = classification;
         }
       }
