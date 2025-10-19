@@ -8,6 +8,7 @@ import NavigationSidebar from "@/components/NavigationSidebar";
 import { getImagePaths, saveClassification, clearAllLabels } from "@/lib/api";
 import { DATASETS, DatasetId, isKnownDataset } from "@/lib/datasetConfig";
 import Link from "next/link";
+import telemetry from "@/lib/telemetry";
 
 export default function DatasetPage() {
   const [imagePaths, setImagePaths] = useState<string[]>([]);
@@ -15,13 +16,9 @@ export default function DatasetPage() {
   const [classifications, setClassifications] = useState<
     Record<string, string>
   >({});
-  const searchParams =
-    typeof window !== "undefined"
-      ? new URLSearchParams(window.location.search)
-      : null;
-  const [labeler] = useState<string>(
-    (searchParams?.get("labeler") || "").toLowerCase()
-  );
+  const [labeler, setLabeler] = useState<string>("");
+  const [labelerInput, setLabelerInput] = useState("");
+  const [labelerReady, setLabelerReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sheetsStatus, setSheetsStatus] = useState({
     isConfigured: false,
@@ -42,9 +39,29 @@ export default function DatasetPage() {
     datasetFromPath || (Object.keys(DATASETS)[0] as DatasetId);
   const datasetConfig = DATASETS[datasetId];
 
+  // Initialize labeler from URL on first load (URL-only)
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return;
+      const url = new URL(window.location.href);
+      const fromUrl = (url.searchParams.get("labeler") || "")
+        .trim()
+        .toLowerCase();
+      const value = fromUrl;
+      if (value) {
+        setLabeler(value);
+        setLabelerInput(value);
+      }
+    } finally {
+      setLabelerReady(true);
+    }
+  }, []);
+
   useEffect(() => {
     const fetchImages = async () => {
+      const loadStart = performance.now?.() || Date.now();
       try {
+        setLoading(true);
         const paths = await getImagePaths(datasetId);
         setImagePaths(paths);
 
@@ -62,13 +79,31 @@ export default function DatasetPage() {
         }
 
         setLoading(false);
+        const loadEnd = performance.now?.() || Date.now();
+        telemetry.record({
+          type: "page_load",
+          datasetId,
+          labeler,
+          imageCount: (paths || []).length,
+          serverDurationMs: loadEnd - loadStart,
+          success: true,
+        });
       } catch (error) {
         console.error("Error fetching image data:", error);
         setLoading(false);
+        const loadEnd = performance.now?.() || Date.now();
+        telemetry.record({
+          type: "page_load",
+          datasetId,
+          labeler,
+          serverDurationMs: loadEnd - loadStart,
+          success: false,
+          error: String(error),
+        });
       }
     };
 
-    fetchImages();
+    if (labeler) fetchImages();
   }, [datasetId, labeler]);
 
   const handleNext = () => {
@@ -124,6 +159,7 @@ export default function DatasetPage() {
 
   const handleClassify = async (classification: string) => {
     if (currentImage) {
+      const clickTs = performance.now?.() || Date.now();
       const updatedClassifications = {
         ...classifications,
         [currentImage]: classification,
@@ -133,6 +169,7 @@ export default function DatasetPage() {
       setSaveStatus("Saving...");
 
       try {
+        const saveStart = performance.now?.() || Date.now();
         const result = await saveClassification(
           currentImage,
           classification,
@@ -142,6 +179,17 @@ export default function DatasetPage() {
 
         if (result.success) {
           setSaveStatus("Saved locally ✓");
+          const ackTs = performance.now?.() || Date.now();
+          telemetry.record({
+            type: "classify",
+            datasetId,
+            labeler,
+            imagePath: currentImage,
+            classification,
+            responseTimeMs: ackTs - clickTs,
+            serverDurationMs: ackTs - saveStart,
+            success: true,
+          });
 
           if (result.googleSheets) {
             setSheetsStatus(result.googleSheets);
@@ -162,16 +210,38 @@ export default function DatasetPage() {
           }
         } else {
           setSaveStatus("Save failed!");
+          const failTs = performance.now?.() || Date.now();
+          telemetry.record({
+            type: "classify",
+            datasetId,
+            labeler,
+            imagePath: currentImage,
+            classification,
+            responseTimeMs: failTs - clickTs,
+            success: false,
+          });
         }
       } catch (error) {
         console.error("Error saving classification:", error);
         setSaveStatus("Save failed!");
+        const errTs = performance.now?.() || Date.now();
+        telemetry.record({
+          type: "classify",
+          datasetId,
+          labeler,
+          imagePath: currentImage,
+          classification,
+          responseTimeMs: errTs - clickTs,
+          success: false,
+          error: String(error),
+        });
       }
     }
   };
 
   const handleClear = async () => {
     if (currentImage && classifications[currentImage]) {
+      const clickTs = performance.now?.() || Date.now();
       const updatedClassifications = { ...classifications };
       delete updatedClassifications[currentImage];
 
@@ -179,6 +249,7 @@ export default function DatasetPage() {
       setSaveStatus("Clearing...");
 
       try {
+        const saveStart = performance.now?.() || Date.now();
         const result = await saveClassification(
           currentImage,
           "",
@@ -188,6 +259,16 @@ export default function DatasetPage() {
 
         if (result.success) {
           setSaveStatus("Cleared locally ✓");
+          const ackTs = performance.now?.() || Date.now();
+          telemetry.record({
+            type: "clear",
+            datasetId,
+            labeler,
+            imagePath: currentImage,
+            responseTimeMs: ackTs - clickTs,
+            serverDurationMs: ackTs - saveStart,
+            success: true,
+          });
 
           if (result.googleSheets) {
             setSheetsStatus(result.googleSheets);
@@ -201,24 +282,54 @@ export default function DatasetPage() {
           }
         } else {
           setSaveStatus("Clear failed!");
+          const failTs = performance.now?.() || Date.now();
+          telemetry.record({
+            type: "clear",
+            datasetId,
+            labeler,
+            imagePath: currentImage,
+            responseTimeMs: failTs - clickTs,
+            success: false,
+          });
         }
       } catch (error) {
         console.error("Error clearing classification:", error);
         setSaveStatus("Clear failed!");
+        const errTs = performance.now?.() || Date.now();
+        telemetry.record({
+          type: "clear",
+          datasetId,
+          labeler,
+          imagePath: currentImage,
+          success: false,
+          error: String(error),
+          responseTimeMs: errTs - clickTs,
+        });
       }
     }
   };
 
   const handleResetAll = async () => {
     if (confirm("Are you sure you want to reset all classifications?")) {
+      const clickTs = performance.now?.() || Date.now();
       setClassifications({});
       setSaveStatus("Resetting all...");
 
       try {
+        const resetStart = performance.now?.() || Date.now();
         const result = await clearAllLabels(datasetId, labeler);
 
         if (result.success) {
           setSaveStatus("Reset all locally ✓");
+          const ackTs = performance.now?.() || Date.now();
+          telemetry.record({
+            type: "reset_all",
+            datasetId,
+            labeler,
+            responseTimeMs: ackTs - clickTs,
+            serverDurationMs: ackTs - resetStart,
+            success: true,
+          });
 
           if (result.googleSheets) {
             setSheetsStatus(result.googleSheets);
@@ -234,10 +345,27 @@ export default function DatasetPage() {
           setCurrentIndex(0);
         } else {
           setSaveStatus("Reset failed!");
+          const failTs = performance.now?.() || Date.now();
+          telemetry.record({
+            type: "reset_all",
+            datasetId,
+            labeler,
+            success: false,
+            responseTimeMs: failTs - clickTs,
+          });
         }
       } catch (error) {
         console.error("Error resetting all classifications:", error);
         setSaveStatus("Reset failed!");
+        const errTs = performance.now?.() || Date.now();
+        telemetry.record({
+          type: "reset_all",
+          datasetId,
+          labeler,
+          success: false,
+          error: String(error),
+          responseTimeMs: errTs - clickTs,
+        });
       }
     }
   };
@@ -252,6 +380,95 @@ export default function DatasetPage() {
     const pathParts = imagePath.split("/");
     return pathParts[pathParts.length - 2] || "";
   };
+
+  // Periodic sampling for throughput and memory; basic error/misclick tracking
+  useEffect(() => {
+    const startedAt = Date.now();
+    const performanceWithMemory = performance as Performance & {
+      memory?: { usedJSHeapSize: number };
+    };
+    const intervalId = window.setInterval(() => {
+      try {
+        const now = Date.now();
+        const minutes = (now - startedAt) / 60000;
+        const currentLabeled = Object.keys(classifications || {}).length;
+        const throughputPerMin = minutes > 0 ? currentLabeled / minutes : 0;
+        const memoryMB = performanceWithMemory.memory
+          ? Math.round(
+              (performanceWithMemory.memory.usedJSHeapSize / 1048576) * 100
+            ) / 100
+          : undefined;
+        telemetry.record({
+          type: "sample",
+          datasetId,
+          labeler,
+          minutes,
+          labeled: currentLabeled,
+          throughputPerMin,
+          memoryMB,
+        });
+      } catch {}
+    }, 30000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [datasetId, labeler, classifications]);
+
+  // Early UI states for labeler readiness
+  if (!labelerReady) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Preparing...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!labeler) {
+    const handleSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      const value = labelerInput.trim().toLowerCase();
+      if (!value) return;
+      setLabeler(value);
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.set("labeler", value);
+        window.history.replaceState(null, "", url.toString());
+      }
+    };
+
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">
+            Enter your labeler name
+          </h2>
+          <p className="text-sm text-gray-600 mb-4">
+            We use this to attribute your annotations.
+          </p>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <input
+              type="text"
+              value={labelerInput}
+              onChange={(e) => setLabelerInput(e.target.value)}
+              placeholder="e.g., alice"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              autoFocus
+            />
+            <button
+              type="submit"
+              className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Continue
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

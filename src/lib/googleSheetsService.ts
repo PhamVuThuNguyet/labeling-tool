@@ -290,6 +290,76 @@ export class GoogleSheetsService {
       };
     }
   }
+
+  /**
+   * Append telemetry events as rows to a Telemetry sheet
+   */
+  async appendTelemetry(
+    events: Array<Record<string, unknown>>,
+    sheetTabName = "Telemetry"
+  ): Promise<{ success: boolean; message: string }> {
+    if (!this.isConfigured) {
+      return { success: false, message: this.configStatus };
+    }
+
+    try {
+      const headers = [
+        "ts",
+        "serverTs",
+        "type",
+        "sessionId",
+        "datasetId",
+        "labeler",
+        "imagePath",
+        "classification",
+        "responseTimeMs",
+        "serverDurationMs",
+        "success",
+        "minutes",
+        "labeled",
+        "throughputPerMin",
+        "memoryMB",
+        "ua",
+        "error",
+      ];
+
+      await this.ensureSheetTabExists(sheetTabName, headers);
+
+      const rows = events.map((e) => [
+        (e as any).ts ?? "",
+        (e as any).serverTs ?? "",
+        (e as any).type ?? "",
+        (e as any).sessionId ?? "",
+        (e as any).datasetId ?? "",
+        (e as any).labeler ?? "",
+        (e as any).imagePath ?? "",
+        (e as any).classification ?? "",
+        (e as any).responseTimeMs ?? "",
+        (e as any).serverDurationMs ?? "",
+        (e as any).success ?? "",
+        (e as any).minutes ?? "",
+        (e as any).labeled ?? "",
+        (e as any).throughputPerMin ?? "",
+        (e as any).memoryMB ?? "",
+        (e as any).ua ?? "",
+        (e as any).error ?? "",
+      ]);
+
+      await this.sheets.spreadsheets.values.append({
+        spreadsheetId: this.spreadsheetId,
+        range: `${sheetTabName}!A:A`,
+        valueInputOption: "RAW",
+        insertDataOption: "INSERT_ROWS",
+        requestBody: { values: rows },
+      });
+
+      return { success: true, message: "Telemetry appended" };
+    } catch (error) {
+      const errorMsg = `Error appending telemetry: ${error}`;
+      console.error(errorMsg);
+      return { success: false, message: errorMsg };
+    }
+  }
 }
 
 export default GoogleSheetsService.getInstance();
