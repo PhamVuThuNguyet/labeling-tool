@@ -18,6 +18,10 @@ export class GoogleSheetsService {
   private spreadsheetId: string | null = null;
   private isConfigured: boolean = false;
   private configStatus: string = "Not initialized";
+  private lastRequestTime: number = 0;
+  private readonly minRequestInterval: number = 1000; // 1 second between requests
+  private requestCount: number = 0;
+  private readonly maxRequestsPerMinute: number = 50; // Conservative limit
 
   private constructor() {
     this.initializeService();
@@ -107,6 +111,82 @@ export class GoogleSheetsService {
     return GoogleSheetsService.instance;
   }
 
+  /**
+   * Rate limiting to prevent quota exceeded errors
+   */
+  private async rateLimit(): Promise<void> {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+
+    // Reset counter every minute
+    if (timeSinceLastRequest > 60000) {
+      this.requestCount = 0;
+    }
+
+    // Check if we're approaching the rate limit
+    if (this.requestCount >= this.maxRequestsPerMinute) {
+      const waitTime = 60000 - timeSinceLastRequest;
+      if (waitTime > 0) {
+        console.warn(
+          `[GoogleSheets] Rate limit reached (${this.requestCount}/${this.maxRequestsPerMinute}), waiting ${waitTime}ms`
+        );
+        await new Promise((resolve) => setTimeout(resolve, waitTime));
+        this.requestCount = 0;
+      }
+    }
+
+    if (timeSinceLastRequest < this.minRequestInterval) {
+      const waitTime = this.minRequestInterval - timeSinceLastRequest;
+
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
+    }
+
+    this.lastRequestTime = Date.now();
+    this.requestCount++;
+
+    // Log warning when approaching limit
+    if (this.requestCount > this.maxRequestsPerMinute * 0.8) {
+      console.warn(
+        `[GoogleSheets] Approaching rate limit: ${this.requestCount}/${this.maxRequestsPerMinute} requests`
+      );
+    }
+  }
+
+  /**
+   * Retry logic with exponential backoff for quota errors
+   */
+  private async retryWithBackoff<T>(
+    operation: () => Promise<T>,
+    maxRetries: number = 5,
+    baseDelay: number = 2000
+  ): Promise<T> {
+    let lastError: any;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        await this.rateLimit();
+        return await operation();
+      } catch (error: any) {
+        lastError = error;
+
+        // Check if it's a quota error
+        if (error.message && error.message.includes("Quota exceeded")) {
+          if (attempt < maxRetries) {
+            const delay = baseDelay * Math.pow(2, attempt);
+
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            continue;
+          }
+        }
+
+        // For non-quota errors or final attempt, throw immediately
+        throw error;
+      }
+    }
+
+    throw lastError;
+  }
+
   private async getSheetTitles(): Promise<string[]> {
     const resp = await this.sheets.spreadsheets.get({
       spreadsheetId: this.spreadsheetId,
@@ -137,11 +217,13 @@ export class GoogleSheetsService {
       });
 
       // write header row
-      await this.sheets.spreadsheets.values.update({
-        spreadsheetId: this.spreadsheetId,
-        range: `${sheetTabName}!A1`,
-        valueInputOption: "RAW",
-        resource: { values: [headers] },
+      await this.retryWithBackoff(async () => {
+        return await this.sheets.spreadsheets.values.update({
+          spreadsheetId: this.spreadsheetId,
+          range: `${sheetTabName}!A1`,
+          valueInputOption: "RAW",
+          resource: { values: [headers] },
+        });
       });
     }
   }
@@ -201,13 +283,68 @@ export class GoogleSheetsService {
       });
 
       // Update with new data
-      await this.sheets.spreadsheets.values.update({
-        spreadsheetId: this.spreadsheetId,
-        range: `${sheetTabName}!A1`,
-        valueInputOption: "RAW",
-        resource: {
-          values: rows,
-        },
+      await this.retryWithBackoff(async () => {
+        return await this.sheets.spreadsheets.values.update({
+          spreadsheetId: this.spreadsheetId,
+          range: `${sheetTabName}!A1`,
+          valueInputOption: "RAW",
+          resource: { values: rows },
+        });
+      });
+
+      return {
+        success: true,
+        message: "Successfully updated Google Sheet",
+      };
+    } catch (error) {
+      const errorMsg = `Error updating Google Sheet: ${error}`;
+      console.error(errorMsg);
+      return {
+        success: false,
+        message: errorMsg,
+      };
+    }
+  }
+
+  async updateSheetSingleRow(
+    imagePath: string,
+    classification: string,
+    sheetTabName = "Classifications",
+    datasetId?: DatasetId
+  ): Promise<{ success: boolean; message: string }> {
+    if (!this.isConfigured) {
+      return {
+        success: false,
+        message: this.configStatus,
+      };
+    }
+
+    try {
+      const headers =
+        datasetId && DATASETS[datasetId]
+          ? DATASETS[datasetId].headers
+          : ["ImagePath", "Classification"];
+
+      // ensure sheet exists
+      await this.ensureSheetTabExists(sheetTabName, headers);
+
+      // Convert single classification to row format
+      let row: string[][];
+      if (datasetId && DATASETS[datasetId]) {
+        row = [DATASETS[datasetId].toRow(imagePath, classification)];
+      } else {
+        row = [[imagePath, classification]];
+      }
+
+      // Update with new data
+      await this.retryWithBackoff(async () => {
+        return await this.sheets.spreadsheets.values.append({
+          spreadsheetId: this.spreadsheetId,
+          range: `${sheetTabName}!A:A`,
+          valueInputOption: "RAW",
+          insertDataOption: "INSERT_ROWS",
+          resource: { values: row },
+        });
       });
 
       return {
@@ -345,12 +482,14 @@ export class GoogleSheetsService {
         (e as any).error ?? "",
       ]);
 
-      await this.sheets.spreadsheets.values.append({
-        spreadsheetId: this.spreadsheetId,
-        range: `${sheetTabName}!A:A`,
-        valueInputOption: "RAW",
-        insertDataOption: "INSERT_ROWS",
-        requestBody: { values: rows },
+      await this.retryWithBackoff(async () => {
+        return await this.sheets.spreadsheets.values.append({
+          spreadsheetId: this.spreadsheetId,
+          range: `${sheetTabName}!A:A`,
+          valueInputOption: "RAW",
+          insertDataOption: "INSERT_ROWS",
+          requestBody: { values: rows },
+        });
       });
 
       return { success: true, message: "Telemetry appended" };

@@ -178,8 +178,9 @@ export default function DatasetPage() {
         );
 
         if (result.success) {
-          setSaveStatus("Saved locally ✓");
+          setSaveStatus("Saving to Google Sheets...");
           const ackTs = performance.now?.() || Date.now();
+
           telemetry.record({
             type: "classify",
             datasetId,
@@ -191,22 +192,37 @@ export default function DatasetPage() {
             success: true,
           });
 
+          // Wait for telemetry to be sent to Google Sheets
+          setSaveStatus("Saving telemetry to Google Sheets...");
+          try {
+            await telemetry.flush();
+          } catch (error) {
+            console.error("Telemetry failed:", error);
+          }
+
+          // Handle Google Sheets status
           if (result.googleSheets) {
             setSheetsStatus(result.googleSheets);
             if (result.googleSheets.isConfigured) {
               setSaveStatus(
                 result.googleSheets.updateSuccess
-                  ? "Saved locally and to Google Sheets ✓"
-                  : "Saved locally. Google Sheets update failed!"
+                  ? "Saved to Google Sheets ✓"
+                  : "Google Sheets update failed!"
               );
+            } else {
+              setSaveStatus("Google Sheets not configured");
             }
+          } else {
+            setSaveStatus("Save failed!");
           }
 
-          if (currentIndex < imagePaths.length - 1) {
-            setTimeout(() => {
-              setCurrentIndex(currentIndex + 1);
-              setSaveStatus(null);
-            }, 500);
+          if (result.googleSheets && result.googleSheets.updateSuccess) {
+            if (currentIndex < imagePaths.length - 1) {
+              setTimeout(() => {
+                setCurrentIndex(currentIndex + 1);
+                setSaveStatus(null);
+              }, 500);
+            }
           }
         } else {
           setSaveStatus("Save failed!");
@@ -258,7 +274,7 @@ export default function DatasetPage() {
         );
 
         if (result.success) {
-          setSaveStatus("Cleared locally ✓");
+          setSaveStatus("Clearing from Google Sheets...");
           const ackTs = performance.now?.() || Date.now();
           telemetry.record({
             type: "clear",
@@ -275,10 +291,14 @@ export default function DatasetPage() {
             if (result.googleSheets.isConfigured) {
               setSaveStatus(
                 result.googleSheets.updateSuccess
-                  ? "Cleared locally and from Google Sheets ✓"
-                  : "Cleared locally. Google Sheets update failed!"
+                  ? "Cleared from Google Sheets ✓"
+                  : "Google Sheets update failed!"
               );
+            } else {
+              setSaveStatus("Google Sheets not configured");
             }
+          } else {
+            setSaveStatus("Clear failed!");
           }
         } else {
           setSaveStatus("Clear failed!");
@@ -320,7 +340,7 @@ export default function DatasetPage() {
         const result = await clearAllLabels(datasetId, labeler);
 
         if (result.success) {
-          setSaveStatus("Reset all locally ✓");
+          setSaveStatus("Resetting all in Google Sheets...");
           const ackTs = performance.now?.() || Date.now();
           telemetry.record({
             type: "reset_all",
@@ -336,10 +356,14 @@ export default function DatasetPage() {
             if (result.googleSheets.isConfigured) {
               setSaveStatus(
                 result.googleSheets.updateSuccess
-                  ? "Reset all locally and in Google Sheets ✓"
-                  : "Reset all locally. Google Sheets update failed!"
+                  ? "Reset all in Google Sheets ✓"
+                  : "Google Sheets update failed!"
               );
+            } else {
+              setSaveStatus("Google Sheets not configured");
             }
+          } else {
+            setSaveStatus("Reset failed!");
           }
 
           setCurrentIndex(0);
@@ -408,7 +432,7 @@ export default function DatasetPage() {
           memoryMB,
         });
       } catch {}
-    }, 30000);
+    }, 60000);
 
     return () => {
       clearInterval(intervalId);
