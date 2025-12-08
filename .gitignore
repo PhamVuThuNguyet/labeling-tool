@@ -37,4 +37,4 @@ next-env.d.ts
 service-account-key.json
 
 # Classifications
-classifications.json
+output/
