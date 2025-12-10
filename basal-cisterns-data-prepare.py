@@ -13,8 +13,7 @@ LABELED_DEST_ROOT = Path("data/cisterns-data-with-labels")
 FILENAME = "cisterns-segment.jpg"
 GROUND_TRUTH_CSV = DEST_ROOT / "ground-truth.csv"
 
-# Regex to capture the numeric suffix from folder names like CQ500-CT-123
-FOLDER_PATTERN = re.compile(r"^CQ500-CT-(\d+)$")
+FOLDER_PATTERN = "CQ500-CT-"
 
 
 def copy_cisterns_images(start: int | None = None, end: int | None = None) -> None:
@@ -27,21 +26,11 @@ def copy_cisterns_images(start: int | None = None, end: int | None = None) -> No
     if not SRC_ROOT.exists():
         raise FileNotFoundError(f"Source root does not exist: {SRC_ROOT}")
 
-    for entry in sorted(SRC_ROOT.iterdir()):
+    for num in range(start, end + 1):
+        entry = SRC_ROOT / f"{FOLDER_PATTERN}{num}"
         if not entry.is_dir():
             continue
 
-        match = FOLDER_PATTERN.match(entry.name)
-        if not match:
-            continue
-
-        num = match.group(1)
-        num_int = int(num)
-
-        if start is not None and num_int < start:
-            continue
-        if end is not None and num_int > end:
-            continue
         src_file = entry / FILENAME
         if not src_file.is_file():
             # Skip folders without the expected image
@@ -83,21 +72,11 @@ def build_ground_truth_csv(
             writer = csv.writer(f)
             writer.writerow(["id", "right-horn", "left-horn"])
 
-    for entry in sorted(SRC_ROOT.iterdir()):
+    for num in range(start, end + 1):
+        entry = SRC_ROOT / f"{FOLDER_PATTERN}{num}"
         if not entry.is_dir():
             continue
-
-        match = FOLDER_PATTERN.match(entry.name)
-        if not match:
-            continue
-
-        num = match.group(1)
-        num_int = int(num)
-        if start is not None and num_int < start:
-            continue
-        if end is not None and num_int > end:
-            continue
-
+        
         right_path = entry / "right-horn.xml"
         left_path = entry / "left-horn.xml" 
 
@@ -134,19 +113,9 @@ def add_labels_to_images(
     except Exception:
         font = ImageFont.load_default()
 
-    for entry in sorted(SRC_ROOT.iterdir()):
+    for num in range(start, end + 1):
+        entry = SRC_ROOT / f"{FOLDER_PATTERN}{num}"
         if not entry.is_dir():
-            continue
-
-        match = FOLDER_PATTERN.match(entry.name)
-        if not match:
-            continue
-
-        num = match.group(1)
-        num_int = int(num)
-        if start is not None and num_int < start:
-            continue
-        if end is not None and num_int > end:
             continue
 
         src_img = DEST_ROOT / num / FILENAME
@@ -216,6 +185,6 @@ def add_labels_to_images(
 
 
 if __name__ == "__main__":
-    # copy_cisterns_images(start=0, end=15)
-    # build_ground_truth_csv(start=0, end=15)
-    add_labels_to_images(start=0, end=15)
+    copy_cisterns_images(start=0, end=20)
+    build_ground_truth_csv(start=0, end=20)
+    add_labels_to_images(start=0, end=20)

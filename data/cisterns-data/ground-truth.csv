@@ -7,7 +7,12 @@ id,right-horn,left-horn
 13,compressed,absent
 14,absent,compressed
 15,compressed,compressed
+16,compressed,compressed
+17,normal,compressed
+18,normal,normal
+19,normal,normal
 2,normal,compressed
+20,normal,normal
 3,absent,absent
 4,compressed,compressed
 5,compressed,compressed
