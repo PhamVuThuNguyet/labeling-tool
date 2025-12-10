@@ -27,6 +27,7 @@ def copy_cisterns_images(start: int | None = None, end: int | None = None) -> No
         raise FileNotFoundError(f"Source root does not exist: {SRC_ROOT}")
 
     for num in range(start, end + 1):
+        num = str(num)
         entry = SRC_ROOT / f"{FOLDER_PATTERN}{num}"
         if not entry.is_dir():
             continue
@@ -114,6 +115,7 @@ def add_labels_to_images(
         font = ImageFont.load_default()
 
     for num in range(start, end + 1):
+        num = str(num)
         entry = SRC_ROOT / f"{FOLDER_PATTERN}{num}"
         if not entry.is_dir():
             continue
@@ -185,6 +187,6 @@ def add_labels_to_images(
 
 
 if __name__ == "__main__":
-    copy_cisterns_images(start=0, end=20)
-    build_ground_truth_csv(start=0, end=20)
-    add_labels_to_images(start=0, end=20)
+    copy_cisterns_images(start=6, end=6)
+    # build_ground_truth_csv(start=6, end=6)
+    add_labels_to_images(start=6, end=6)
