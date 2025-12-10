@@ -58,9 +58,17 @@ export async function GET(request: NextRequest) {
 
     const imageBuffer = fs.readFileSync(fullPath);
 
+    const ext = path.extname(fullPath).toLowerCase();
+    const contentType =
+      ext === ".png"
+        ? "image/png"
+        : ext === ".jpg" || ext === ".jpeg"
+        ? "image/jpeg"
+        : "application/octet-stream";
+
     return new NextResponse(imageBuffer, {
       headers: {
-        "Content-Type": "image/png",
+        "Content-Type": contentType,
         "Cache-Control": "public, max-age=3600",
       },
     });

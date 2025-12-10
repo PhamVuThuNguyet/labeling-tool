@@ -8,7 +8,7 @@ import NavigationSidebar from "@/components/NavigationSidebar";
 import { getImagePaths, saveClassification, clearAllLabels } from "@/lib/api";
 import { DATASETS, DatasetId, isKnownDataset } from "@/lib/datasetConfig";
 import Link from "next/link";
-import telemetry from "@/lib/telemetry";
+// import telemetry from "@/lib/telemetry";
 
 export default function DatasetPage() {
   const [imagePaths, setImagePaths] = useState<string[]>([]);
@@ -80,26 +80,26 @@ export default function DatasetPage() {
 
         setLoading(false);
         const loadEnd = performance.now?.() || Date.now();
-        telemetry.record({
-          type: "page_load",
-          datasetId,
-          labeler,
-          imageCount: (paths || []).length,
-          serverDurationMs: loadEnd - loadStart,
-          success: true,
-        });
+        // telemetry.record({
+        //   type: "page_load",
+        //   datasetId,
+        //   labeler,
+        //   imageCount: (paths || []).length,
+        //   serverDurationMs: loadEnd - loadStart,
+        //   success: true,
+        // });
       } catch (error) {
         console.error("Error fetching image data:", error);
         setLoading(false);
         const loadEnd = performance.now?.() || Date.now();
-        telemetry.record({
-          type: "page_load",
-          datasetId,
-          labeler,
-          serverDurationMs: loadEnd - loadStart,
-          success: false,
-          error: String(error),
-        });
+        // telemetry.record({
+        //   type: "page_load",
+        //   datasetId,
+        //   labeler,
+        //   serverDurationMs: loadEnd - loadStart,
+        //   success: false,
+        //   error: String(error),
+        // });
       }
     };
 
@@ -181,24 +181,24 @@ export default function DatasetPage() {
           setSaveStatus("Saving to Google Sheets...");
           const ackTs = performance.now?.() || Date.now();
 
-          telemetry.record({
-            type: "classify",
-            datasetId,
-            labeler,
-            imagePath: currentImage,
-            classification,
-            responseTimeMs: ackTs - clickTs,
-            serverDurationMs: ackTs - saveStart,
-            success: true,
-          });
+          //   telemetry.record({
+          //     type: "classify",
+          //     datasetId,
+          //     labeler,
+          //     imagePath: currentImage,
+          //     classification,
+          //     responseTimeMs: ackTs - clickTs,
+          //     serverDurationMs: ackTs - saveStart,
+          //     success: true,
+          //   });
 
           // Wait for telemetry to be sent to Google Sheets
-          setSaveStatus("Saving telemetry to Google Sheets...");
-          try {
-            await telemetry.flush();
-          } catch (error) {
-            console.error("Telemetry failed:", error);
-          }
+          //   setSaveStatus("Saving telemetry to Google Sheets...");
+          //   try {
+          //     await telemetry.flush();
+          //   } catch (error) {
+          //     console.error("Telemetry failed:", error);
+          //   }
 
           // Handle Google Sheets status
           if (result.googleSheets) {
@@ -227,30 +227,30 @@ export default function DatasetPage() {
         } else {
           setSaveStatus("Save failed!");
           const failTs = performance.now?.() || Date.now();
-          telemetry.record({
-            type: "classify",
-            datasetId,
-            labeler,
-            imagePath: currentImage,
-            classification,
-            responseTimeMs: failTs - clickTs,
-            success: false,
-          });
+          //   telemetry.record({
+          //     type: "classify",
+          //     datasetId,
+          //     labeler,
+          //     imagePath: currentImage,
+          //     classification,
+          //     responseTimeMs: failTs - clickTs,
+          //     success: false,
+          //   });
         }
       } catch (error) {
         console.error("Error saving classification:", error);
         setSaveStatus("Save failed!");
         const errTs = performance.now?.() || Date.now();
-        telemetry.record({
-          type: "classify",
-          datasetId,
-          labeler,
-          imagePath: currentImage,
-          classification,
-          responseTimeMs: errTs - clickTs,
-          success: false,
-          error: String(error),
-        });
+        // telemetry.record({
+        //   type: "classify",
+        //   datasetId,
+        //   labeler,
+        //   imagePath: currentImage,
+        //   classification,
+        //   responseTimeMs: errTs - clickTs,
+        //   success: false,
+        //   error: String(error),
+        // });
       }
     }
   };
@@ -276,15 +276,15 @@ export default function DatasetPage() {
         if (result.success) {
           setSaveStatus("Clearing from Google Sheets...");
           const ackTs = performance.now?.() || Date.now();
-          telemetry.record({
-            type: "clear",
-            datasetId,
-            labeler,
-            imagePath: currentImage,
-            responseTimeMs: ackTs - clickTs,
-            serverDurationMs: ackTs - saveStart,
-            success: true,
-          });
+          //   telemetry.record({
+          //     type: "clear",
+          //     datasetId,
+          //     labeler,
+          //     imagePath: currentImage,
+          //     responseTimeMs: ackTs - clickTs,
+          //     serverDurationMs: ackTs - saveStart,
+          //     success: true,
+          //   });
 
           if (result.googleSheets) {
             setSheetsStatus(result.googleSheets);
@@ -303,28 +303,28 @@ export default function DatasetPage() {
         } else {
           setSaveStatus("Clear failed!");
           const failTs = performance.now?.() || Date.now();
-          telemetry.record({
-            type: "clear",
-            datasetId,
-            labeler,
-            imagePath: currentImage,
-            responseTimeMs: failTs - clickTs,
-            success: false,
-          });
+          //   telemetry.record({
+          //     type: "clear",
+          //     datasetId,
+          //     labeler,
+          //     imagePath: currentImage,
+          //     responseTimeMs: failTs - clickTs,
+          //     success: false,
+          //   });
         }
       } catch (error) {
         console.error("Error clearing classification:", error);
         setSaveStatus("Clear failed!");
         const errTs = performance.now?.() || Date.now();
-        telemetry.record({
-          type: "clear",
-          datasetId,
-          labeler,
-          imagePath: currentImage,
-          success: false,
-          error: String(error),
-          responseTimeMs: errTs - clickTs,
-        });
+        // telemetry.record({
+        //   type: "clear",
+        //   datasetId,
+        //   labeler,
+        //   imagePath: currentImage,
+        //   success: false,
+        //   error: String(error),
+        //   responseTimeMs: errTs - clickTs,
+        // });
       }
     }
   };
@@ -342,14 +342,14 @@ export default function DatasetPage() {
         if (result.success) {
           setSaveStatus("Resetting all in Google Sheets...");
           const ackTs = performance.now?.() || Date.now();
-          telemetry.record({
-            type: "reset_all",
-            datasetId,
-            labeler,
-            responseTimeMs: ackTs - clickTs,
-            serverDurationMs: ackTs - resetStart,
-            success: true,
-          });
+          //   telemetry.record({
+          //     type: "reset_all",
+          //     datasetId,
+          //     labeler,
+          //     responseTimeMs: ackTs - clickTs,
+          //     serverDurationMs: ackTs - resetStart,
+          //     success: true,
+          //   });
 
           if (result.googleSheets) {
             setSheetsStatus(result.googleSheets);
@@ -370,26 +370,26 @@ export default function DatasetPage() {
         } else {
           setSaveStatus("Reset failed!");
           const failTs = performance.now?.() || Date.now();
-          telemetry.record({
-            type: "reset_all",
-            datasetId,
-            labeler,
-            success: false,
-            responseTimeMs: failTs - clickTs,
-          });
+          //   telemetry.record({
+          //     type: "reset_all",
+          //     datasetId,
+          //     labeler,
+          //     success: false,
+          //     responseTimeMs: failTs - clickTs,
+          //   });
         }
       } catch (error) {
         console.error("Error resetting all classifications:", error);
         setSaveStatus("Reset failed!");
         const errTs = performance.now?.() || Date.now();
-        telemetry.record({
-          type: "reset_all",
-          datasetId,
-          labeler,
-          success: false,
-          error: String(error),
-          responseTimeMs: errTs - clickTs,
-        });
+        // telemetry.record({
+        //   type: "reset_all",
+        //   datasetId,
+        //   labeler,
+        //   success: false,
+        //   error: String(error),
+        //   responseTimeMs: errTs - clickTs,
+        // });
       }
     }
   };
@@ -422,15 +422,15 @@ export default function DatasetPage() {
               (performanceWithMemory.memory.usedJSHeapSize / 1048576) * 100
             ) / 100
           : undefined;
-        telemetry.record({
-          type: "sample",
-          datasetId,
-          labeler,
-          minutes,
-          labeled: currentLabeled,
-          throughputPerMin,
-          memoryMB,
-        });
+        // telemetry.record({
+        //   type: "sample",
+        //   datasetId,
+        //   labeler,
+        //   minutes,
+        //   labeled: currentLabeled,
+        //   throughputPerMin,
+        //   memoryMB,
+        // });
       } catch {}
     }, 60000);
 

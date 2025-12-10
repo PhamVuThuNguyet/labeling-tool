@@ -16,14 +16,14 @@ const BASE_COLOR = {
     "bg-yellow-300 text-white shadow-yellow-200 hover:bg-yellow-500",
 };
 
-const COLOR_CLASSES: Record<string, { active: string; base: string }> = {
+export const COLOR_CLASSES: Record<string, { active: string; base: string }> = {
   Yes: {
-    active: BASE_COLOR["positive-active"],
-    base: BASE_COLOR["positive-base"],
-  },
-  No: {
     active: BASE_COLOR["negative-active"],
     base: BASE_COLOR["negative-base"],
+  },
+  No: {
+    active: BASE_COLOR["positive-active"],
+    base: BASE_COLOR["positive-base"],
   },
   MLS: {
     active: BASE_COLOR["positive-active"],

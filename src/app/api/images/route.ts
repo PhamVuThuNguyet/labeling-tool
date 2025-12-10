@@ -30,17 +30,20 @@ export async function GET(request: NextRequest) {
     }
 
     const entries = fs.readdirSync(dataDir);
-
     const patientDirs = entries.filter((item) => {
       const itemPath = path.join(dataDir, item);
       return fs.statSync(itemPath).isDirectory();
     });
 
+    const allowedExtensions = new Set([".png", ".jpg", ".jpeg"]);
+
     for (const patientDir of patientDirs) {
       const patientPath = path.join(dataDir, patientDir);
-      const imageFiles = fs.readdirSync(patientPath).filter((file) => {
-        return file.toLowerCase().endsWith(".png");
-      });
+      const imageFiles = fs
+        .readdirSync(patientPath)
+        .filter((file) =>
+          allowedExtensions.has(path.extname(file).toLowerCase())
+        );
 
       for (const imageFile of imageFiles) {
         // Include dataset segment

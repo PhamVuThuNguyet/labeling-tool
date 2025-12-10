@@ -1,4 +1,8 @@
-export type DatasetId = "mls-data" | "spinal-data" | "triaging-data";
+export type DatasetId =
+  | "mls-data"
+  | "spinal-data"
+  | "triaging-data"
+  | "cisterns-data";
 
 export interface DatasetConfig {
   // Subdirectory under the app's data directory where images reside
@@ -92,6 +96,29 @@ export const DATASETS: Record<DatasetId, DatasetConfig> = {
       if (!study_id || !slice_number) return null;
       return {
         imagePath: `data/spinal-data/${study_id}/slice_${slice_number}.png`,
+        classification,
+      };
+    },
+  },
+  "cisterns-data": {
+    dataDirName: "cisterns-data-with-labels",
+    sheetTabName: "Cisterns_Classifications",
+    labels: ["Yes", "No"],
+    title: "Basal Cisterns Classification",
+    headers: ["id", "classification"],
+    toRow: (imagePath, classification) => {
+      // imagePath format: data/cisterns-data-with-labels/<id>/cisterns-segment.jpg
+      const parts = imagePath.split("/");
+      const id = parts[2] || imagePath;
+      return [id, classification];
+    },
+    fromRow: (row) => {
+      if (!row || row.length < 2) return null;
+      const id = row[0];
+      const classification = row[1];
+      if (!id) return null;
+      return {
+        imagePath: `data/cisterns-data-with-labels/${id}/cisterns-segment.jpg`,
         classification,
       };
     },

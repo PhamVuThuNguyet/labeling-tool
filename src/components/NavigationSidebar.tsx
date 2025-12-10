@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { useState } from "react";
 import { DATASETS, DatasetId } from "@/lib/datasetConfig";
+import { COLOR_CLASSES } from "./ClassificationButtons";
 
 interface NavigationSidebarProps {
   imagePaths: string[];
@@ -26,6 +27,30 @@ const NavigationSidebar = ({
   const datasetConfig = datasetId ? DATASETS[datasetId] : undefined;
   const positiveLabel = datasetConfig ? datasetConfig.labels[0] : undefined;
   const negativeLabel = datasetConfig ? datasetConfig.labels[1] : undefined;
+
+  const getThumbnailColors = (classification?: string) => {
+    if (!classification) {
+      return { background: "bg-white", dot: "bg-gray-300" };
+    }
+
+    const palette = COLOR_CLASSES[classification];
+
+    // Prefer button palette backgrounds so thumbnails match button colors
+    if (palette) {
+      // Use the button base classes for the thumbnail background; keep dot simple
+      const background = palette.base;
+      const dot = palette.active.includes("red")
+        ? "bg-red-500"
+        : palette.active.includes("green")
+        ? "bg-green-500"
+        : palette.active.includes("yellow")
+        ? "bg-yellow-500"
+        : "bg-blue-500";
+      return { background, dot };
+    }
+
+    return { background: "bg-blue-100", dot: "bg-blue-500" };
+  };
 
   const getImageStatus = (imagePath: string) => {
     const classification = classifications[imagePath];
@@ -143,6 +168,8 @@ const NavigationSidebar = ({
             const status = getImageStatus(imagePath);
             const isCurrent = index === currentIndex;
             const fileName = imagePath.split("/").pop() || "";
+            const classification = classifications[imagePath];
+            const { background, dot } = getThumbnailColors(classification);
 
             return (
               <div
@@ -155,13 +182,7 @@ const NavigationSidebar = ({
                       ? "border-blue-500 shadow-lg"
                       : "border-gray-200 hover:border-gray-300"
                   }
-                  ${
-                    status === "positive"
-                      ? "bg-red-50"
-                      : status === "negative"
-                      ? "bg-green-50"
-                      : "bg-white"
-                  }
+                  ${background}
                 `}
                 title={`${fileName} - ${
                   status === "unclassified"
@@ -186,19 +207,12 @@ const NavigationSidebar = ({
 
                 {/* Status Indicator */}
                 <div className="absolute top-1 right-1">
-                  {status === "positive" && (
+                  {classification ? (
                     <div
-                      className="w-3 h-3 bg-red-500 rounded-full border border-white"
-                      title={positiveLabel || "Positive"}
+                      className={`w-3 h-3 ${dot} rounded-full border border-white`}
+                      title={classification}
                     />
-                  )}
-                  {status === "negative" && (
-                    <div
-                      className="w-3 h-3 bg-green-500 rounded-full border border-white"
-                      title={negativeLabel || "Negative"}
-                    />
-                  )}
-                  {status === "unclassified" && (
+                  ) : (
                     <div
                       className="w-3 h-3 bg-gray-300 rounded-full border border-white"
                       title="Unclassified"
